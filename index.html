@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101413">
+  <title>1WIN AI LAB — Analyse des jeux</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#overview" aria-label="1WIN AI LAB, accueil">
+        <span class="brand-mark">1</span><span>1WIN <b>AI LAB</b></span>
+      </a>
+      <div class="side-label">LABORATOIRE</div>
+      <nav aria-label="Navigation principale">
+        <a class="nav-item active" href="#overview"><span class="nav-icon">◫</span> Vue d’ensemble</a>
+        <a class="nav-item" href="#game"><span class="nav-icon">◎</span> Jeux étudiés</a>
+        <a class="nav-item" href="#strategies"><span class="nav-icon">⌁</span> Stratégies</a>
+        <a class="nav-item" href="#simulation"><span class="nav-icon">▤</span> Simulations</a>
+        <a class="nav-item" href="#validation"><span class="nav-icon">◈</span> Validation</a>
+        <a class="nav-item" href="#history"><span class="nav-icon">◷</span> Historique</a>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="offline-card"><span class="status-dot"></span><div><strong>Mode hors ligne</strong><small>Calculs locaux, sans compte</small></div></div>
+        <div class="side-foot">PHASE 1 <span>·</span> BUILD 0.1</div>
+      </div>
+    </aside>
+
+    <main class="main-content" id="overview">
+      <header class="topbar">
+        <div class="breadcrumbs">Laboratoire <span>/</span> <strong>Vue d’ensemble</strong></div>
+        <div class="top-actions"><span class="privacy-pill"><i></i> Données stockées sur cet appareil</span><button class="icon-button" id="exportButton" title="Exporter les données">↓</button></div>
+      </header>
+
+      <section class="page-heading">
+        <div><div class="eyebrow"><span class="live-dot"></span> MOTEUR D’ANALYSE STATISTIQUE</div><h1>Analyse <span>&amp; découverte</span></h1><p>Étudiez des stratégies mathématiques sans miser d’argent réel.</p></div>
+        <div class="heading-date"><span>ESPACE DE TRAVAIL</span><strong id="todayLabel">—</strong></div>
+      </section>
+
+      <section class="notice-banner" role="note">
+        <div class="notice-icon">!</div><div><strong>Pas de probabilité Aviator confirmée</strong><p>Le RTP et les chances d’atteindre chaque multiplicateur ne sont pas préremplis. Ajoutez une source et ses données avant de lancer un scénario.</p></div><a href="#game">Renseigner les données <span>→</span></a>
+      </section>
+
+      <section class="metric-grid" aria-label="Indicateurs">
+        <article class="metric-card"><div class="metric-top"><span>JEU ACTIF</span><span class="metric-icon violet">◎</span></div><div class="metric-value" id="metricGame">Aviator</div><div class="metric-foot"><span class="muted">Données à documenter</span><span class="tag tag-amber" id="dataStatus">INCOMPLET</span></div></article>
+        <article class="metric-card"><div class="metric-top"><span>STRATÉGIES COMPARÉES</span><span class="metric-icon blue">⌁</span></div><div class="metric-value" id="metricStrategies">6</div><div class="metric-foot"><span class="muted">Cibles de cash-out</span><span class="tag tag-blue">PARAMÈTRES</span></div></article>
+        <article class="metric-card"><div class="metric-top"><span>SIMULATIONS</span><span class="metric-icon green">▤</span></div><div class="metric-value" id="metricRuns">0</div><div class="metric-foot"><span class="muted">Scénarios exécutés</span><span class="tag tag-green">REPRODUCTIBLES</span></div></article>
+        <article class="metric-card"><div class="metric-top"><span>MEILLEURE ESPÉRANCE</span><span class="metric-icon amber">↗</span></div><div class="metric-value" id="metricBest">—</div><div class="metric-foot"><span class="muted">Par unité misée</span><span class="tag tag-neutral">CONDITIONNELLE</span></div></article>
+      </section>
+
+      <div class="content-grid">
+        <section class="panel chart-panel" id="strategies">
+          <div class="panel-heading"><div><div class="eyebrow">COMPARAISON DES PARAMÈTRES</div><h2>Cash-out Aviator</h2></div><button class="subtle-button" id="refreshStrategies">Actualiser <span>↻</span></button></div>
+          <div class="chart-legend"><span><i class="legend-dot expected"></i> Espérance théorique / mise</span><span><i class="legend-dot simulated"></i> Résultat simulé</span></div>
+          <div class="chart-wrap"><canvas id="strategyChart" aria-label="Graphique comparant les espérances par multiplicateur" role="img"></canvas><div class="chart-empty" id="chartEmpty"><div class="empty-orbit">?</div><strong>Probabilités manquantes</strong><span>Ajoutez une probabilité documentée pour afficher les valeurs théoriques.</span></div></div>
+          <div class="chart-axis"><span>1,20×</span><span>1,50×</span><span>2×</span><span>3×</span><span>5×</span><span>10×</span></div>
+          <div class="strategy-details" id="strategyDetails" aria-live="polite"></div>
+        </section>
+
+        <section class="panel validation-panel" id="validation">
+          <div class="panel-heading"><div><div class="eyebrow">HONEST PROFIT VALIDATION</div><h2>État de validation</h2></div><span class="validation-mark">◈</span></div>
+          <div class="validation-status"><span class="status-ring">…</span><div><strong id="validationStatus">EN COURS DE TEST</strong><small id="validationSummary">Données insuffisantes pour évaluer une espérance.</small></div></div>
+          <div class="validation-list">
+            <div><span class="check pending" id="checkSource">·</span><span>Source des règles documentée</span><b id="labelSource">À FAIRE</b></div>
+            <div><span class="check pending" id="checkProb">·</span><span>Probabilités vérifiables</span><b id="labelProb">À FAIRE</b></div>
+            <div><span class="check pending">·</span><span>Test hors échantillon indépendant</span><b>NON EFFECTUÉ</b></div>
+            <div><span class="check pending">·</span><span>Résultat réel comparé à une référence</span><b>NON EFFECTUÉ</b></div>
+          </div>
+          <div class="validation-note">Une simulation générée par le modèle ne constitue pas une validation indépendante de ce modèle.</div>
+        </section>
+      </div>
+
+      <div class="content-grid second-row">
+        <section class="panel table-panel" id="game">
+          <div class="panel-heading"><div><div class="eyebrow">GAME DISCOVERY ENGINE</div><h2>Jeu &amp; données documentées</h2></div><button class="subtle-button" id="editGameButton">Modifier <span>↗</span></button></div>
+          <div class="game-summary"><div class="game-logo">A</div><div class="game-title"><strong>Aviator</strong><span>Jeu crash · fournisseur/version à confirmer</span></div><span class="tag tag-amber" id="gameTag">À DOCUMENTER</span></div>
+          <div class="data-grid"><div><span>RTP CONFIRMÉ</span><strong id="displayRtp">Inconnu</strong></div><div><span>PROBABILITÉS</span><strong id="displayProb">0 / 6 cibles</strong></div><div><span>SOURCE</span><strong id="displaySource">Non renseignée</strong></div></div>
+          <div class="source-line" id="displayNotes">Les données de jeu doivent être confirmées pour la version étudiée.</div>
+        </section>
+
+        <section class="panel sim-panel" id="simulation">
+          <div class="panel-heading"><div><div class="eyebrow">SIMULATION MONTE-CARLO</div><h2>Lancer un scénario</h2></div><span class="seed-badge">GRAINE FIXE</span></div>
+          <div class="form-grid">
+            <label>Multiplicateur cible<select id="targetSelect"><option value="1.2">1,20×</option><option value="1.5">1,50×</option><option value="2">2×</option><option value="3">3×</option><option value="5">5×</option><option value="10">10×</option></select></label>
+            <label>Manches / trajectoire<select id="roundsSelect"><option value="10000">10 000</option><option value="50000">50 000</option><option value="100000" selected>100 000</option></select></label>
+            <label>Trajectoires indépendantes<input id="pathsInput" type="number" min="1" max="500" step="1" value="100"></label>
+            <label>Gestion des mises<select id="stakingSelect"><option value="flat">Mise fixe</option><option value="percent">Pourcentage du solde</option><option value="martingale">Progression ×2 après perte</option></select></label>
+            <label>Mise initiale (unités)<input id="stakeInput" type="number" min="0.01" step="0.01" value="1"></label>
+            <label>Capital initial (unités)<input id="bankrollInput" type="number" min="1" step="1" value="100"></label>
+            <label id="fractionLabel" class="hidden">Part du capital / mise fixe<input id="fractionInput" type="number" min="1" max="100" step="1" value="2"></label>
+            <label id="capLabel" class="hidden">Mise maximale (unités)<input id="capInput" type="number" min="0.01" step="0.01" value="16"></label>
+            <label>Graine aléatoire<input id="seedInput" type="text" value="AVIATOR-PHASE1-001" maxlength="80"></label>
+          </div>
+          <div class="probability-required" id="probabilityRequired"><span>⊙</span><div><strong>Probabilité de réussite requise</strong><p>Pour simuler cette cible, renseignez la probabilité documentée dans « Jeu &amp; données », avec sa source.</p></div><button id="editProbabilityButton">Renseigner</button></div>
+          <div class="sim-actions"><span id="simEstimate">10 000 000 tirages · calcul local</span><button class="primary-button" id="runButton" disabled><span>▶</span> Lancer la simulation</button></div>
+          <div class="progress-track hidden" id="progressTrack"><div id="progressBar"></div></div>
+        </section>
+      </div>
+
+      <section class="panel results-panel hidden" id="resultsPanel">
+        <div class="panel-heading"><div><div class="eyebrow">DERNIER SCÉNARIO</div><h2>Résultats simulés</h2></div><div class="result-meta" id="resultMeta"></div></div>
+        <div class="result-grid">
+          <div class="result-card"><span>PARTIES GAGNANTES</span><strong id="resultWins">—</strong><small id="resultWinRate">—</small></div>
+          <div class="result-card"><span>PARTIES PERDANTES</span><strong id="resultLosses">—</strong><small id="resultPlayable">—</small></div>
+          <div class="result-card"><span>RÉSULTAT NET MOYEN</span><strong id="resultNet">—</strong><small id="resultNetCi">IC 95 % entre trajectoires</small></div>
+          <div class="result-card"><span>DRAWDOWN MAX. MÉDIAN</span><strong id="resultDrawdown">—</strong><small id="resultDrawdownSmall">Maximum observé : —</small></div>
+          <div class="result-card"><span>RUINE ESTIMÉE</span><strong id="resultRuin">—</strong><small id="resultRuinCi">IC 95 % Wilson</small></div>
+          <div class="result-card"><span>ESPÉRANCE THÉORIQUE</span><strong id="resultTheory">—</strong><small id="resultTheoryCi">Conditionnelle aux données saisies</small></div>
+        </div>
+        <div class="result-disclaimer" id="resultDisclaimer">Simulation conditionnelle, sans mise réelle. Les trajectoires simulées ne valident pas la probabilité d’entrée.</div>
+      </section>
+
+      <section class="panel history-panel" id="history">
+        <div class="panel-heading"><div><div class="eyebrow">JOURNAL D’ANALYSE</div><h2>Historique des scénarios</h2></div><button class="subtle-button" id="clearHistoryButton">Effacer l’historique</button></div>
+        <div class="table-scroll"><table><thead><tr><th>DATE</th><th>CIBLE</th><th>PROBABILITÉ SAISIE</th><th>TRAJECTOIRES × MANCHES</th><th>ESPÉRANCE NETTE</th><th>RISQUE DE RUINE</th><th>GRAINE</th></tr></thead><tbody id="historyBody"><tr class="empty-row"><td colspan="7">Aucun scénario exécuté.</td></tr></tbody></table></div>
+      </section>
+      <footer class="footer"><span>1WIN AI LAB <b>·</b> PHASE 1</span><span>Aucun pari réel · Aucune connexion à 1win · Calculs dans le navigateur</span><span id="appVersion">LOCAL BUILD 0.1.0</span></footer>
+    </main>
+  </div>
+
+  <dialog id="gameDialog" class="modal">
+    <form method="dialog" id="gameForm">
+      <div class="modal-head"><div><div class="eyebrow">GAME DISCOVERY ENGINE</div><h2>Documenter Aviator</h2></div><button class="close-button" value="cancel" aria-label="Fermer">×</button></div>
+      <p class="modal-intro">Laissez vide toute donnée non confirmée. Les probabilités représentent ici la chance que le jeu atteigne le multiplicateur sélectionné avant le crash.</p>
+      <div class="form-grid modal-grid"><label>Fournisseur / version<input id="providerInput" type="text" placeholder="Ex. SPRIBE — version à confirmer"></label><label>RTP confirmé (%)<input id="rtpInput" type="number" min="0.01" max="100" step="0.01" placeholder="Non renseigné"></label>
+        <label>Probabilité d’atteindre 1,20× (%)<input class="prob-input" data-target="1.2" type="number" min="0" max="100" step="0.0001" placeholder="Inconnue"></label><label>Probabilité d’atteindre 1,50× (%)<input class="prob-input" data-target="1.5" type="number" min="0" max="100" step="0.0001" placeholder="Inconnue"></label>
+        <label>Probabilité d’atteindre 2× (%)<input class="prob-input" data-target="2" type="number" min="0" max="100" step="0.0001" placeholder="Inconnue"></label><label>Probabilité d’atteindre 3× (%)<input class="prob-input" data-target="3" type="number" min="0" max="100" step="0.0001" placeholder="Inconnue"></label>
+        <label>Probabilité d’atteindre 5× (%)<input class="prob-input" data-target="5" type="number" min="0" max="100" step="0.0001" placeholder="Inconnue"></label><label>Probabilité d’atteindre 10× (%)<input class="prob-input" data-target="10" type="number" min="0" max="100" step="0.0001" placeholder="Inconnue"></label>
+        <label class="full-width">Source publique / URL<input id="sourceInput" type="url" placeholder="https://…"></label><label class="full-width">Notes et méthode de vérification<textarea id="notesInput" rows="3" placeholder="Version du jeu, règles consultées, date, conditions, limites…"></textarea></label>
+      </div>
+      <div class="modal-warning"><strong>Important</strong><span>Le RTP seul ne détermine pas automatiquement la probabilité d’atteindre chaque cash-out. Saisissez les probabilités séparément et documentez leur provenance.</span></div>
+      <div class="modal-actions"><button class="subtle-button" value="cancel">Annuler</button><button class="primary-button" id="saveGameButton" value="default">Enregistrer les données</button></div>
+    </form>
+  </dialog>
+  <dialog id="confirmDialog" class="modal confirm-modal"><form method="dialog"><div class="modal-head"><div><div class="eyebrow">CONFIRMATION</div><h2>Effacer l’historique ?</h2></div></div><p>Cette action supprime les scénarios enregistrés sur cet appareil.</p><div class="modal-actions"><button class="subtle-button" value="cancel">Annuler</button><button class="danger-button" id="confirmClearButton" value="default">Effacer</button></div></form></dialog>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js" defer></script>
+</body>
+</html>
+
