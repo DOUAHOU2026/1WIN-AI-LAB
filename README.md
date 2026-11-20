@@ -1,50 +1,73 @@
 # 1WIN AI LAB — Phase 1
 
-Prototype local et hors ligne d’analyse statistique. Il n’intègre aucun compte 1win, aucune API, Cloudflare, Telegram, pari, dépôt ou retrait.
+Moteur local, déterministe et sans dépendance tierce pour calculs mathématiques, simulations virtuelles et comparaison de stratégies. Aucun accès à 1win, aucun Browser Run, Cloudflare, Telegram, identifiant ou pari réel.
 
-## Démarrer
+## Lancer l’application
 
-Ouvrir `index.html` dans un navigateur moderne. L’application ne requiert ni installation, ni serveur, ni dépendance distante. Les données sont enregistrées dans le stockage local du navigateur utilisé. Le bouton de téléchargement exporte un fichier JSON de sauvegarde.
+Prérequis : Node.js déjà disponible sur l’ordinateur. Aucun `npm install` ni téléchargement de paquet n’est nécessaire.
 
-## Données Aviator
-
-Le jeu est initialisé avec un RTP inconnu et sans probabilité par multiplicateur. Renseigner une probabilité sans source reste possible, mais elle est présentée comme une hypothèse et ne devient pas une donnée vérifiée. Le RTP est conservé à titre documentaire ; le moteur ne le convertit jamais automatiquement en probabilités de cash-out.
-
-Pour une cible de cash-out `x` et une probabilité d’atteinte saisie `q`, le modèle à mise fixe calcule :
-
-```text
-espérance nette par unité misée = q × x − 1
+```bash
+npm run dev
 ```
 
-Le modèle suppose une mise perdue entièrement si le seuil n’est pas atteint et un paiement brut `x` fois la mise en cas de réussite. Il ne modélise pas un éventuel plafond de paiement, délai de cash-out, règle propre à une version, commission ou erreur de saisie. Le moteur refuse les données dont la probabilité d’atteindre une cible plus haute dépasse celle d’une cible plus basse.
+Ouvrir ensuite `http://127.0.0.1:4173`. Le serveur intégré écoute uniquement sur l’interface locale. Le tableau de bord conserve ses configurations et rapports dans `localStorage` du navigateur ; ils ne sont pas chiffrés ni synchronisés.
 
-## Simulation
+## Vérifier et mesurer
 
-- Les choix 10 000, 50 000 et 100 000 correspondent aux manches **par trajectoire**. Le nombre de trajectoires (1 à 250) est distinct ; le volume total est affiché avant l’exécution.
-- La graine textuelle est convertie en état initial d’un générateur pseudo-aléatoire Mulberry32. Graine, paramètres et version des résultats sont conservés dans l’historique afin de reproduire le même tirage pseudo-aléatoire dans cette version du moteur.
-- Les trajectoires sont indépendantes au sein du PRNG initialisé et partagent la même séquence déterministe. La ruine est définie comme un solde insuffisant pour la mise initiale, ce qui met fin à la trajectoire.
-- Les méthodes sont mise fixe, part du solde courant, et progression Martingale plafonnée. Ces méthodes changent l’exposition et la distribution du résultat ; elles ne changent pas la probabilité d’atteindre le multiplicateur.
-- L’IC Wilson à 95 % décrit le taux de réussite simulé et le risque de ruine simulé. L’IC normal de la moyenne du résultat net est calculé entre les trajectoires indépendantes. Ces intervalles quantifient l’incertitude de simulation conditionnelle à `q` ; ils ne corrigent pas une probabilité d’entrée fausse.
-- Le drawdown est le plus grand recul relatif entre un sommet de solde et un creux ultérieur. Le tableau de résultats montre la médiane du drawdown maximal par trajectoire ; les données exportées conservent aussi le maximum observé.
-- Le net théorique affiché (`q × x − 1`) est celui d’une mise unitaire fixe. Pour les méthodes à mise variable, le résultat net simulé est le résultat pertinent ; la valeur théorique fixe n’est pas présentée comme leur espérance globale.
+```bash
+npm test
+npm run bench
+```
 
-## Validation honnête
+Le benchmark utilise un jeu de probabilités **synthétiques uniquement** pour mesurer les performances ; ses résultats ne décrivent pas Aviator.
 
-Le statut reste `EN COURS DE TEST` lorsqu’il manque les données ou lorsque l’espérance saisie ne donne pas un rejet direct. Si toutes les cibles renseignées ont une espérance négative, l’interface indique `REJETÉE SOUS LES HYPOTHÈSES SAISIES`. Une espérance positive ou une longue simulation ne peut pas promouvoir une stratégie en `PROMETTEUSE` ou `VALIDÉE SOUS HYPOTHÈSES`.
+## Architecture
 
-Cette version n’ingère pas de résultats historiques et n’implémente pas un test hors échantillon. Avant d’attribuer ces statuts, il faut figer la stratégie avant l’examen d’un jeu de données tenu à part, comparer à une référence préétablie, corriger les comparaisons multiples, tester la sensibilité et documenter l’origine indépendante des résultats. Un historique de multiplicateurs ne sert pas à prédire les prochains multiplicateurs.
+- `engine/games.js` : interface de modèle de jeu, modèle crash configurable et catalogue extensible. Mines, Dice, Plinko et Crash générique restent indisponibles tant que leurs règles et probabilités ne sont pas configurées.
+- `engine/probability.js` : distributions, espérance, variance, intervalles de Wilson et intervalles de moyenne, tests unilatéraux et correction de Holm-Bonferroni.
+- `engine/seeded-rng.js` : générateur Mulberry32 déterministe et dérivation reproductible de graines par stratégie, phase et trajectoire.
+- `engine/strategies.js` : espace de stratégies fixe : six cibles de cash-out, quatre méthodes de mise et deux profils de risque. Avec les six probabilités renseignées, cela produit jusqu’à 48 candidats.
+- `engine/simulator.js` : simulation de l’exploration et d’une validation simulée indépendante, calculs de résultat net, espérance théorique, intervalles, volatilité indirecte, drawdown, séries de pertes et risque de ruine.
+- `engine/validation.js` : rejet sous espérance négative, détection d’un signal qui ne se reproduit pas sur la seconde graine et classification conditionnelle.
+- `engine/reports.js` : génération de rapports JSON et CSV.
+- `server.mjs` : serveur de fichiers local sans dépendance.
+- `tests/engine.test.js` : tests automatisés ; `tests/benchmark.mjs` mesure temps et mémoire.
 
-## Vie privée et limites
+## Modèle Aviator
 
-Les informations restent dans le navigateur, sous `localStorage`. Elles ne sont ni chiffrées par l’application ni synchronisées ; ne pas y inscrire de mot de passe, jeton, cookie ou donnée de compte. Effacer les données du navigateur peut supprimer l’historique ; utiliser l’export JSON pour le conserver. Le prototype n’inclut pas d’import et de validation de fichiers.
+Le modèle de crash exige une probabilité explicite pour chaque cible disponible. Le champ RTP est conservé comme métadonnée seulement : aucune formule ne le convertit en probabilités d’atteinte. Les six cibles sont 1,20×, 1,50×, 2×, 3×, 5× et 10×. Une table incohérente où une cible supérieure aurait une probabilité plus grande est refusée.
 
-Les résultats sont des simulations ou calculs conditionnels, jamais un gain réel, une prévision garantie ni un conseil de mise. Le fonctionnement dépend des capacités du navigateur et du stockage de l’appareil.
+Pour un multiplicateur `x` et une probabilité d’atteinte `q`, l’espérance théorique nette par unité misée est :
 
-## Vérifications locales
+```text
+EV = q × (x − 1) + (1 − q) × (−1) = q × x − 1
+```
 
-Avec Node.js installé, exécuter `node --check app.js` puis `node --test tests/phase1-smoke.test.cjs`. Le test utilise des probabilités synthétiques uniquement pour vérifier l’interface, la reproductibilité, les méthodes de mise, les intervalles et les trois tailles de simulation ; ses valeurs ne décrivent pas le jeu Aviator.
+Une victoire crédite le profit net `(x−1) × mise`; un échec perd la mise. Les paiements, règles de plafonnement, latences de cash-out et éventuelles variantes du fournisseur ne sont pas inférés. Tant que la source et la version ne sont pas documentées, le tableau affiche `MODÈLE THÉORIQUE — NON VÉRIFIÉ SUR LA VERSION 1WIN`.
 
-## Limites de cette phase
+## Recherche et risque
 
-Cette première version n’effectue pas de recherche web automatique, ne gère qu’Aviator et six cibles prédéfinies, et n’importe pas de données historiques. Les stratégies publiques peuvent être documentées via la source et les notes, puis les paramètres de cash-out et de mise peuvent être comparés. La validation hors échantillon, la correction statistique des comparaisons multiples, l’analyse de sensibilité et le classement fondé sur des données indépendantes sont à construire avant d’utiliser les statuts « prometteuse » ou « validée sous hypothèses ».
+Chaque cible connue est comparée en mise fixe, proportion du capital, Martingale plafonnée et progression de récupération plafonnée. Les deux profils multiplient les limites virtuelles définies par l’utilisateur par 1 ou 2. La comparaison conserve la même mise initiale, le même capital, la même durée et les mêmes paramètres de risque par profil.
+
+La ruine est définie comme l’incapacité à engager au moins la mise initiale ou à couvrir la mise calculée. Le stop-loss et le take-profit arrêtent une trajectoire lorsque le résultat net atteint le seuil en unités de mise initiale. Les trajectoires ruinées ou arrêtées avant terme jouent moins de manches ; le rapport conserve le nombre réellement joué.
+
+La correction de Holm est appliquée aux tests de rendement positif et aux comparaisons contre une référence (mise fixe à 1,50× si elle est disponible). La recherche et la validation utilisent des graines distinctes. Cette validation est un **second échantillon simulé du même modèle**, et non un jeu de résultats réels indépendant. Le moteur n’ingère pas encore de données historiques observées.
+
+Les intervalles à 95 % du taux de réussite et du risque de ruine utilisent Wilson. Les intervalles de rendement moyen reposent sur l’approximation normale entre trajectoires indépendantes. Avec peu de trajectoires, la précision est faible ; le rapport affiche le nombre de trajectoires et les paramètres. Les tests de significativité sont des approximations normales, pas une preuve d’un avantage réel.
+
+Les statuts sont :
+
+- `REJECTED` : EV théorique non positif ou plafond de risque dépassé.
+- `UNDER TEST` : preuves corrigées, hypothèses ou reproduction insuffisantes.
+- `VALIDATED UNDER ASSUMPTIONS` : EV théorique positif, hypothèses explicitement déclarées par l’utilisateur, signal significatif après correction dans la validation simulée et meilleur que la référence. Ce statut ne signifie pas que la probabilité saisie est exacte, qu’un avantage existe dans la version 1win, ou que des gains futurs sont garantis.
+
+## Données et limites
+
+- Aucune valeur RTP ou probabilité Aviator n’est préremplie.
+- La case de vérification enregistre la déclaration de l’utilisateur ; elle ne consulte ni ne certifie la source.
+- Les stratégies sont des règles de simulation, pas des recommandations de mise.
+- Les résultats passés ne servent pas à prédire des multiplicateurs futurs.
+- L’exploration indépendante du Web, l’import de données historiques, les tests statistiques sur données observées et l’évaluation d’autres jeux restent à faire.
+- Les rapports sont exportables en JSON/CSV ; l’historique local peut être effacé avec la commande correspondante.
+- Aucun composant n’accède à un compte, ne place de mise, ni ne contacte un service externe.
 
