@@ -1,22 +1,29 @@
 import { createAviatorModel } from '../engine/games.js';
-import { runDiscovery } from '../engine/simulator.js';
+import { runStrategySearch } from '../engine/discovery.js';
 
 const model = createAviatorModel({
-  reachProbabilities: { '1.2': 0.82, '1.5': 0.66, '2': 0.48, '3': 0.32, '5': 0.19, '10': 0.095 },
+  reachProbabilities: { '1.2': 1, '1.5': 1, '2': 1, '3': 1, '5': 1, '10': 1 },
   source: 'Synthetic performance fixture only',
-  notes: 'Not Aviator data; used only to measure the engine.'
+  notes: 'Not Aviator data; used only to measure candidate discovery.'
 });
 const before = process.memoryUsage();
 const start = performance.now();
-const report = await runDiscovery(model, {
-  rounds: 100000,
-  paths: 2,
+const report = await runStrategySearch(model, {
+  rounds: 10000,
+  paths: 5,
   stake: 1,
-  bankroll: 1000000,
-  stopLossUnits: 500000,
-  takeProfitUnits: 500000,
-  maxLossStreak: 100000,
+  bankroll: 200,
+  stopLossUnits: 25,
+  takeProfitUnits: 1000000,
+  maxLossStreak: 100,
   progressionCap: 8,
+  maximumRuinProbability: 1,
+  maxCandidates: 48,
+  shortlistSize: 8,
+  screeningRounds: 1000,
+  screeningPaths: 2,
+  methods: ['flat'],
+  grid: { stakes: [1, 2, 3], bankrolls: [100, 200], stopLossUnits: [25], takeProfitUnits: [1000000], rounds: [10000], maxLossStreaks: [100], progressionCaps: [8], proportionalFractions: [2] },
   seed: 'benchmark-synthetic-only'
 });
 const end = performance.now();
@@ -24,14 +31,14 @@ const after = process.memoryUsage();
 const elapsedSeconds = (end - start) / 1000;
 console.log(JSON.stringify({
   benchmark: 'Synthetic fixture; not Aviator outcome analysis',
-  candidates: report.counts.candidateStrategies,
-  roundsPerPath: report.counts.roundsPerPath,
-  pathsPerStrategy: report.counts.pathsPerStrategy,
-  phases: report.counts.phases,
-  simulatedRounds: report.performance.simulatedRounds,
+  compatibleCombinations: report.counts.generated,
+  sampledCandidates: report.counts.sampled,
+  screenedCandidates: report.counts.screened,
+  finalists: report.counts.shortlisted,
+  roundsPerSecond: Math.round(report.counts.simulatedRounds / elapsedSeconds),
+  plannedWork: report.performance.plannedWork,
+  simulatedRounds: report.counts.simulatedRounds,
   wallMilliseconds: Math.round(end - start),
-  roundsPerSecond: Math.round(report.performance.simulatedRounds / elapsedSeconds),
   heapDeltaBytes: after.heapUsed - before.heapUsed,
   rssDeltaBytes: after.rss - before.rss
 }, null, 2));
-

@@ -22,13 +22,13 @@
       </nav>
       <div class="sidebar-bottom">
         <div class="offline-card"><span class="status-dot"></span><div><strong>Calculs locaux</strong><small>Aucune API ni compte connecté</small></div></div>
-        <div class="side-foot">PHASE 1 <span>·</span> MOTEUR 1.0</div>
+        <div class="side-foot">PHASE 2 <span>·</span> DISCOVERY ENGINE 2.0</div>
       </div>
     </aside>
 
     <main class="main-content" id="overview">
       <header class="topbar"><div class="breadcrumbs">Laboratoire <span>/</span> <strong>Moteur mathématique</strong></div><div class="top-actions"><span class="privacy-pill"><i></i> Données conservées dans ce navigateur</span><button class="icon-button" id="exportJson" title="Exporter le rapport JSON" disabled>↓</button></div></header>
-      <section class="page-heading"><div><div class="eyebrow"><span class="live-dot"></span> PHASE 1 · MOTEUR STATISTIQUE LOCAL</div><h1>Découverte <span>&amp; validation</span></h1><p>Comparez des stratégies virtuelles avec des hypothèses explicites et reproductibles.</p></div><div class="heading-date"><span>MODÈLE ACTIF</span><strong id="todayLabel">Aviator configurable</strong></div></section>
+      <section class="page-heading"><div><div class="eyebrow"><span class="live-dot"></span> PHASE 2 · RECHERCHE STATISTIQUE LOCALE</div><h1>Découverte <span>&amp; validation</span></h1><p>Comparez des stratégies virtuelles avec des hypothèses explicites et reproductibles.</p></div><div class="heading-date"><span>MODÈLE ACTIF</span><strong id="todayLabel">Aviator configurable</strong></div></section>
 
       <section class="notice-banner" role="note"><div class="notice-icon">!</div><div><strong id="modelStatus">Données insuffisantes pour une analyse fiable</strong><p id="modelNotice">Le RTP et les probabilités de cash-out Aviator sont inconnus. Le moteur ne les déduit pas et ne les invente pas.</p></div><button id="openConfig" class="notice-link">Configurer le modèle <span>→</span></button></section>
 
@@ -44,7 +44,7 @@
         <section class="panel model-panel"><div class="panel-heading"><div><div class="eyebrow">DONNÉES DU MODÈLE</div><h2>Aviator · version configurable</h2></div><button class="subtle-button" id="editModel">Modifier <span>↗</span></button></div><div class="model-identity"><div class="game-logo">A</div><div class="game-title"><strong id="providerSummary">Fournisseur / version non confirmés</strong><span>Modèle théorique crash · sans connexion à 1win</span></div><span class="tag tag-amber" id="assumptionTag">NON VÉRIFIÉ</span></div><div class="data-grid"><div><span>RTP DOCUMENTÉ</span><strong id="rtpSummary">Inconnu</strong></div><div><span>PROBABILITÉS</span><strong id="probabilitySummary">0 / 6 cibles</strong></div><div><span>SOURCE</span><strong id="sourceSummary">Non renseignée</strong></div></div><div class="probability-strip" id="probabilityStrip"></div><p class="source-line" id="modelNotes">Aucune règle ou probabilité n’a été ajoutée.</p><div class="data-legend"><span><i class="legend-dot theory"></i> Données théoriques configurées</span><span><i class="legend-dot simulated"></i> Résultats simulés</span><span><i class="legend-dot observed"></i> Aucune donnée réelle observée</span></div></section>
       </div>
 
-      <section class="panel sim-panel" id="discovery"><div class="panel-heading"><div><div class="eyebrow">STRATEGY DISCOVERY ENGINE · SIMULATION ENGINE · RISK ENGINE</div><h2>Explorer et tester les stratégies</h2><p class="panel-subtitle">Chaque cible connue est croisée avec quatre méthodes de mise et deux profils de limites.</p></div><span class="seed-badge">DÉTERMINISTE · SANS MISE RÉELLE</span></div>
+      <section class="panel sim-panel" id="discovery"><div class="panel-heading"><div><div class="eyebrow">STRATEGY DISCOVERY CENTER</div><h2>Explorer et tester les stratégies</h2><p class="panel-subtitle">Génération, filtrage, tests approfondis et validation simulée sur des graines séparées.</p></div><span class="seed-badge">DÉTERMINISTE · SANS MISE RÉELLE</span></div>
         <div class="form-grid sim-form">
           <label>Parties par trajectoire<select id="roundsSelect"><option value="1000">1 000</option><option value="10000" selected>10 000</option><option value="100000">100 000</option></select></label>
           <label>Trajectoires indépendantes<select id="pathsSelect"><option value="2">2 (test rapide)</option><option value="5">5</option><option value="10" selected>10</option><option value="20">20</option></select></label>
@@ -59,9 +59,11 @@
           <label>Risque de ruine maximal (%)<input id="ruinLimitInput" type="number" min="0" max="100" step="1" value="50"></label>
           <label>Graine aléatoire<input id="seedInput" type="text" maxlength="80" value="1WIN-AI-LAB-001"></label>
         </div>
+        <details class="search-grid-settings"><summary>Paramètres de découverte automatique</summary><div class="form-grid sim-form"><label>Plafond de candidats<input id="maxCandidatesInput" type="number" min="1" max="250" step="1" value="48"></label><label>Taille de la présélection<input id="shortlistSizeInput" type="number" min="1" max="250" step="1" value="8"></label><label>Manches de filtrage initial<select id="screeningRoundsSelect"><option value="1000" selected>1 000</option><option value="10000">10 000</option><option value="100000">100 000</option></select></label><label>Trajectoires de filtrage<input id="screeningPathsInput" type="number" min="2" max="20" step="1" value="4"></label>
+          <label>Mises à tester<input id="gridStakesInput" type="text" value="1" placeholder="1; 2; 5"></label><label>Capitaux à tester<input id="gridBankrollsInput" type="text" value="1000" placeholder="500; 1000; 2000"></label><label>Stop-loss à tester (mises)<input id="gridStopLossInput" type="text" value="25" placeholder="10; 25; 50"></label><label>Limites de gains à tester (mises)<input id="gridTakeProfitInput" type="text" value="25" placeholder="10; 25; 50"></label><label>Durées de session à tester<input id="gridRoundsInput" type="text" value="10000" placeholder="1000; 10000; 100000"></label><label>Séries de pertes maximales<input id="gridLossStreakInput" type="text" value="12" placeholder="5; 12; 20"></label><label>Plafonds de progression<input id="gridProgressionInput" type="text" value="8" placeholder="2; 8; 16"></label><label>Mises proportionnelles (%)<input id="gridProportionInput" type="text" value="2" placeholder="1; 2; 5"></label></div><p class="search-grid-note">Séparez jusqu’à 3 valeurs par champ avec des virgules ou des points-virgules. Les combinaisons impossibles sont écartées; la limite de calcul reste plafonnée.</p></details>
         <div class="simulation-callout"><span>ⓘ</span><div><strong>Exploration et validation sont séparées.</strong><p>Une seconde graine teste les candidats après la recherche. C’est une validation indépendante simulée du même modèle, pas une validation sur des observations réelles.</p></div></div>
-        <div class="sim-actions"><span id="runEstimate">— trajectoires · — tirages prévus · calcul local</span><button class="primary-button" id="runButton" disabled><span>▶</span> Lancer la recherche</button></div>
-        <div class="progress-area hidden" id="progressArea"><div class="progress-label"><span id="progressText">Préparation…</span><span id="progressPercent">0 %</span></div><div class="progress-track"><div id="progressBar"></div></div></div>
+        <div class="sim-actions"><span id="runEstimate">— trajectoires · — tirages prévus · calcul local</span><div class="discovery-actions"><button class="danger-button hidden" id="stopSearchButton" type="button">Arrêter la recherche</button><button class="primary-button" id="runButton" disabled><span>▶</span> Lancer la recherche</button></div></div>
+        <div class="progress-area hidden" id="progressArea"><div class="progress-label"><span id="progressText">Préparation…</span><span id="progressPercent">0 %</span></div><div class="progress-track"><div id="progressBar"></div></div><div class="discovery-counters"><span>Générées <b id="progressGenerated">0</b></span><span>Testées <b id="progressTested">0</b></span><span>Rejetées <b id="progressRejected">0</b></span><span>Présélection <b id="progressShortlisted">0</b></span></div></div>
       </section>
 
       <div class="content-grid second-row" id="results">
@@ -73,7 +75,7 @@
 
       <section class="panel history-panel" id="reports"><div class="panel-heading"><div><div class="eyebrow">RAPPORTS REPRODUCTIBLES</div><h2>Historique des analyses</h2></div><div class="history-actions"><button class="subtle-button" id="exportCsv" disabled>Exporter CSV</button><button class="subtle-button" id="clearHistory">Effacer l’historique</button></div></div><div class="table-scroll"><table><thead><tr><th>DATE</th><th>MODÈLE</th><th>PARTIES / TRAJECTOIRE</th><th>TRAJECTOIRES</th><th>CANDIDATS</th><th>DURÉE</th><th>GRAINE</th><th>RAPPORT</th></tr></thead><tbody id="historyBody"><tr class="empty-row"><td colspan="8">Aucune analyse exécutée.</td></tr></tbody></table></div></section>
       <section class="disclaimer-bar"><strong>DONNÉES THÉORIQUES ≠ DONNÉES SIMULÉES ≠ DONNÉES RÉELLES OBSERVÉES.</strong><span>Aucune collecte réelle, connexion 1win, mise, API externe ou service Cloudflare/Telegram.</span></section>
-      <footer class="footer"><span>1WIN AI LAB <b>·</b> PHASE 1</span><span>Node.js intégré · aucune dépendance tierce</span><span>MODE LOCAL</span></footer>
+      <footer class="footer"><span>1WIN AI LAB <b>·</b> PHASE 2</span><span>Node.js intégré · aucune dépendance tierce</span><span>MODE LOCAL</span></footer>
     </main>
   </div>
 
@@ -91,4 +93,3 @@
   <script type="module" src="app.js"></script>
 </body>
 </html>
-

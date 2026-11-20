@@ -1,4 +1,4 @@
-# 1WIN AI LAB — Phase 1
+# 1WIN AI LAB — Phase 2
 
 Moteur local, déterministe et sans dépendance tierce pour calculs mathématiques, simulations virtuelles et comparaison de stratégies. Aucun accès à 1win, aucun Browser Run, Cloudflare, Telegram, identifiant ou pari réel.
 
@@ -28,10 +28,25 @@ Le benchmark utilise un jeu de probabilités **synthétiques uniquement** pour m
 - `engine/seeded-rng.js` : générateur Mulberry32 déterministe et dérivation reproductible de graines par stratégie, phase et trajectoire.
 - `engine/strategies.js` : espace de stratégies fixe : six cibles de cash-out, quatre méthodes de mise et deux profils de risque. Avec les six probabilités renseignées, cela produit jusqu’à 48 candidats.
 - `engine/simulator.js` : simulation de l’exploration et d’une validation simulée indépendante, calculs de résultat net, espérance théorique, intervalles, volatilité indirecte, drawdown, séries de pertes et risque de ruine.
+- `engine/discovery.js` : génération déterministe d’une grille de candidats, filtrage en plusieurs étapes, présélection sous limites de calcul, tests approfondis, graines indépendantes, correction de Holm, bootstrap, sensibilité et classement prudent.
 - `engine/validation.js` : rejet sous espérance négative, détection d’un signal qui ne se reproduit pas sur la seconde graine et classification conditionnelle.
 - `engine/reports.js` : génération de rapports JSON et CSV.
 - `server.mjs` : serveur de fichiers local sans dépendance.
-- `tests/engine.test.js` : tests automatisés ; `tests/benchmark.mjs` mesure temps et mémoire.
+- `tests/engine.test.js` et `tests/discovery.test.js` : tests automatisés ; `tests/benchmark.mjs` mesure le débit et la mémoire sur données synthétiques.
+
+## Strategy Discovery Center
+
+Le centre de découverte réutilise le modèle de jeu, le générateur de nombres aléatoires, le simulateur, les intervalles et la validation de la Phase 1. Il explore les cibles connues, les quatre méthodes de mise et deux profils de limites, puis les valeurs de mise, capital, stop-loss, limite de gains, durée, série maximale, plafond de progression et mise proportionnelle définies dans les grilles. Chaque champ accepte jusqu’à trois valeurs séparées par virgules ou points-virgules. Les combinaisons dont le capital ne couvre pas la mise sont écartées.
+
+La recherche comporte sept étapes : génération, filtrage initial, élimination théorique et par risque, comparaison, test approfondi, validation sur des graines séparées, puis classement. Le nombre maximal de candidats est 250 et le volume de travail prévu est plafonné à 25 millions d’opérations de tirage et de bootstrap; une recherche trop volumineuse est bloquée avant le filtrage. L’utilisateur peut arrêter la recherche; aucun rapport partiel n’est alors enregistré. La progression suit les trajectoires et les stratégies réellement terminées.
+
+Le filtrage élimine les EV théoriques non positives ou dépassant le plafond de ruine. Les candidats écartés gardent leurs paramètres et leur motif dans le rapport. Les candidats admissibles au-delà de la taille de présélection portent le statut `UNDER TEST`, car ils n’ont pas reçu les tests approfondis. Le classement combine EV théorique, borne inférieure bootstrap du rendement simulé, différence exploration-validation et risques simulés; il ne s’appuie pas uniquement sur le taux de réussite. Une variation de ±1 point de probabilité est également documentée pour chaque finaliste.
+
+Les rapports précisent le nombre de combinaisons compatibles, candidats échantillonnés, filtrés, rejetés, présélectionnés et testés; paramètres de chaque candidat; graines; mesures théoriques et simulées; intervalles; risques; durée; consommation mémoire lorsqu’elle est exposée par l’environnement; et sensibilité. `observedRealResults` reste vide. En navigateur, la mesure du tas mémoire peut ne pas être prise en charge et est alors laissée vide.
+
+### Limites statistiques
+
+La présélection est un échantillon déterministe de la grille si celle-ci dépasse le plafond configuré. Les tests approfondis ne concernent que les finalistes. Holm corrige les comparaisons finales, et le bootstrap rééchantillonne les trajectoires simulées, mais ces deux méthodes ne corrigent pas une probabilité initiale erronée. Les étapes exploration et validation utilisent des graines distinctes du même modèle; aucune donnée indépendante observée du jeu n’est disponible. Les progressions de mise ne créent pas d’avantage mathématique. Aucun statut n’est une garantie de gain ou un conseil de mise.
 
 ## Modèle Aviator
 
@@ -70,4 +85,3 @@ Les statuts sont :
 - L’exploration indépendante du Web, l’import de données historiques, les tests statistiques sur données observées et l’évaluation d’autres jeux restent à faire.
 - Les rapports sont exportables en JSON/CSV ; l’historique local peut être effacé avec la commande correspondante.
 - Aucun composant n’accède à un compte, ne place de mise, ni ne contacte un service externe.
-

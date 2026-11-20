@@ -36,6 +36,14 @@ export async function simulateStrategy(gameModel, candidate, options = {}) {
     let stoppedByLimit = false;
 
     for (let round = 0; round < candidate.rounds; round += 1) {
+      if (options.signal && (round & 16383) === 0) {
+        if (options.signal.aborted) {
+          const error = new Error('Recherche arrêtée par l’utilisateur.');
+          error.name = 'AbortError';
+          throw error;
+        }
+        if (round > 0) await new Promise((resolve) => setTimeout(resolve, 0));
+      }
       if (pathNet <= -candidate.stopLossUnits * candidate.stake || pathNet >= candidate.takeProfitUnits * candidate.stake || currentLossStreak >= candidate.maxLossStreak) {
         stoppedByLimit = true;
         break;
@@ -257,4 +265,3 @@ function applyAdjustments(results, baselineId, alpha) {
 function performanceNow() {
   return globalThis.performance?.now?.() ?? Date.now();
 }
-

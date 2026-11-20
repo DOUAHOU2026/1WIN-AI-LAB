@@ -1,8 +1,8 @@
 import { createAviatorModel, AVIATOR_TARGETS, getGameCatalog, MODEL_LABEL } from './engine/games.js';
-import { expectedValue } from './engine/probability.js';
-import { runDiscovery } from './engine/simulator.js';
-import { buildStrategyCandidates, theoreticalStrategyEv, validateStrategySettings } from './engine/strategies.js';
+import { runStrategySearch } from './engine/discovery.js';
+import { theoreticalStrategyEv, validateStrategySettings } from './engine/strategies.js';
 import { downloadTextFile, reportAsCsv, reportAsJson } from './engine/reports.js';
+import { generateSearchCandidates, MAX_DISCOVERY_WORK, normalizeDiscoverySettings, parseGridValues } from './engine/discovery.js';
 
 const STORAGE_KEY = 'onewin-ai-lab-phase1-v2';
 const $ = (selector) => document.querySelector(selector);
@@ -17,6 +17,7 @@ const defaults = {
 const state = loadState();
 let selectedReportIndex = 0;
 let running = false;
+let searchController = null;
 
 function loadState() {
   try {
@@ -82,6 +83,27 @@ function settingsFromForm() {
   });
 }
 
+function discoverySettingsFromForm() {
+  const base = settingsFromForm();
+  return {
+    ...base,
+    maxCandidates: Number($('#maxCandidatesInput').value),
+    shortlistSize: Number($('#shortlistSizeInput').value),
+    screeningRounds: Number($('#screeningRoundsSelect').value),
+    screeningPaths: Number($('#screeningPathsInput').value),
+    grid: {
+      stakes: parseGridValues($('#gridStakesInput').value, { min: 0.01, max: 1e9, label: 'Mises virtuelles' }),
+      bankrolls: parseGridValues($('#gridBankrollsInput').value, { min: 0.01, max: 1e12, label: 'Capitaux virtuels' }),
+      stopLossUnits: parseGridValues($('#gridStopLossInput').value, { min: 0.01, max: 1e6, label: 'Stop-loss' }),
+      takeProfitUnits: parseGridValues($('#gridTakeProfitInput').value, { min: 0.01, max: 1e6, label: 'Limites de gains' }),
+      rounds: parseGridValues($('#gridRoundsInput').value, { min: 1000, max: 100000, integer: true, label: 'Durées de session' }),
+      maxLossStreaks: parseGridValues($('#gridLossStreakInput').value, { min: 1, max: 10000, integer: true, label: 'Séries de pertes' }),
+      progressionCaps: parseGridValues($('#gridProgressionInput').value, { min: 1, max: 1000, label: 'Plafonds de progression' }),
+      proportionalFractions: parseGridValues($('#gridProportionInput').value, { min: 0.01, max: 50, label: 'Mises proportionnelles (%)' })
+    }
+  };
+}
+
 function syncSettingsToForm() {
   $('#roundsSelect').value = String(state.settings.rounds);
   $('#pathsSelect').value = String(state.settings.paths);
@@ -95,6 +117,19 @@ function syncSettingsToForm() {
   $('#alphaSelect').value = String(state.settings.alpha);
   $('#ruinLimitInput').value = String(state.settings.maximumRuinProbability * 100);
   $('#seedInput').value = state.settings.seed;
+  $('#maxCandidatesInput').value = String(state.settings.maxCandidates ?? 48);
+  $('#shortlistSizeInput').value = String(state.settings.shortlistSize ?? 8);
+  $('#screeningRoundsSelect').value = String(state.settings.screeningRounds ?? 1000);
+  $('#screeningPathsInput').value = String(state.settings.screeningPaths ?? 4);
+  const grid = state.settings.grid || {};
+  $('#gridStakesInput').value = (grid.stakes || [state.settings.stake]).join('; ');
+  $('#gridBankrollsInput').value = (grid.bankrolls || [state.settings.bankroll]).join('; ');
+  $('#gridStopLossInput').value = (grid.stopLossUnits || [state.settings.stopLossUnits]).join('; ');
+  $('#gridTakeProfitInput').value = (grid.takeProfitUnits || [state.settings.takeProfitUnits]).join('; ');
+  $('#gridRoundsInput').value = (grid.rounds || [state.settings.rounds]).join('; ');
+  $('#gridLossStreakInput').value = (grid.maxLossStreaks || [state.settings.maxLossStreak]).join('; ');
+  $('#gridProgressionInput').value = (grid.progressionCaps || [state.settings.progressionCap]).join('; ');
+  $('#gridProportionInput').value = (grid.proportionalFractions || [state.settings.proportionalFraction]).join('; ');
 }
 
 function currentModel() {
@@ -165,18 +200,26 @@ function renderModel() {
 
 function renderRunEstimate() {
   let candidateCount = 0;
+  let searchCandidates = [];
   let rounds = Number($('#roundsSelect').value) || state.settings.rounds;
   let paths = Number($('#pathsSelect').value) || state.settings.paths;
   try {
     const model = currentModel();
-    candidateCount = buildStrategyCandidates(model, settingsFromForm()).length;
+    searchCandidates = generateSearchCandidates(model, discoverySettingsFromForm()).candidates;
+    candidateCount = searchCandidates.length;
   } catch { candidateCount = 0; }
-  const estimate = candidateCount * rounds * paths * 2;
+  let estimate = candidateCount * rounds * paths * 2;
+  try {
+    const config = normalizeDiscoverySettings(discoverySettingsFromForm());
+    const screening = searchCandidates.reduce((sum, candidate) => sum + Math.min(candidate.rounds, config.screeningRounds) * config.screeningPaths, 0);
+    const deep = searchCandidates.map((candidate) => candidate.rounds).sort((a, b) => b - a).slice(0, config.shortlistSize).reduce((sum, count) => sum + count * paths * 2, 0);
+    estimate = screening + deep + Math.min(config.shortlistSize, candidateCount) * paths * 500;
+  } catch { /* A partially edited grid is validated when the search starts. */ }
   $('#runEstimate').textContent = candidateCount
-    ? `${candidateCount} candidats · ${numberFormat.format(rounds)} parties × ${paths} trajectoires · env. ${numberFormat.format(estimate)} tirages sur 2 phases`
+    ? `${candidateCount} candidats max · env. ${numberFormat.format(estimate)} tirages prévus · plafond ${numberFormat.format(MAX_DISCOVERY_WORK)}`
     : 'Renseignez une probabilité de cash-out avant de lancer une simulation.';
   $('#candidateCount').textContent = `${candidateCount} CANDIDAT${candidateCount === 1 ? '' : 'S'}`;
-  $('#metricStrategies').textContent = String(currentReport()?.counts.candidateStrategies ?? candidateCount);
+  $('#metricStrategies').textContent = String(currentReport()?.counts.generated ?? candidateCount);
 }
 
 function renderStrategyTable(model, report) {
@@ -187,20 +230,32 @@ function renderStrategyTable(model, report) {
       tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Les probabilités manquantes empêchent une comparaison fiable.</td></tr>';
       return;
     }
-    const candidates = buildStrategyCandidates(model, settingsFromForm());
+    let candidates;
+    try { candidates = generateSearchCandidates(model, discoverySettingsFromForm()).candidates; }
+    catch (error) { tbody.innerHTML = `<tr class="empty-row"><td colspan="8">${escapeHtml(error.message)}</td></tr>`; return; }
     tbody.innerHTML = candidates.map((candidate) => {
       const ev = theoreticalStrategyEv(model, candidate);
-      return `<tr><td><strong>${escapeHtml(candidate.name)}</strong></td><td class="${ev < 0 ? 'negative' : 'positive'}">${fmtPct(ev)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="tag tag-neutral">UNDER TEST</span></td></tr>`;
+      return `<tr><td><strong>${escapeHtml(candidate.name)}</strong><small>${escapeHtml(candidateParameterLine(candidate))}</small></td><td class="${ev < 0 ? 'negative' : 'positive'}">${fmtPct(ev)}</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><span class="tag tag-neutral">UNDER TEST</span></td></tr>`;
     }).join('');
     return;
   }
-  tbody.innerHTML = report.strategies.map((item) => {
+  const rows = [...report.strategies, ...(report.unadvancedStrategies || []), ...(report.rejectedStrategies || [])];
+  tbody.innerHTML = rows.map((item) => {
     const v = item.validation;
+    if (!v) {
+      const s = item.screening;
+      const rejected = item.status === 'REJECTED';
+      return `<tr><td><strong>${escapeHtml(item.candidate.name)}</strong><small>${escapeHtml(candidateParameterLine(item.candidate))} · ${escapeHtml(item.candidate.id)}</small></td><td class="${s.theoreticalEvPerStakeUnit < 0 ? 'negative' : 'positive'}">${fmtPct(s.theoreticalEvPerStakeUnit)}</td><td>${fmtPct(s.meanReturnPerStakeUnit)}</td><td>Filtrage seul</td><td>${fmtPct(s.worstMaxDrawdownRate)}</td><td>${fmtPct(s.ruinProbability)}</td><td>${s.maxLossStreak}</td><td><span class="tag ${rejected ? 'tag-red' : 'tag-amber'}">${escapeHtml(item.status)}</span><small class="status-reason">${escapeHtml(item.statusReason)}</small></td></tr>`;
+    }
     const ci = v.meanReturnCi95 ? `${fmtPct(v.meanReturnCi95.lower)} à ${fmtPct(v.meanReturnCi95.upper)}` : '—';
     const progressText = `${fmtPct(v.meanReturnPerStakeUnit)} · ${ci}`;
     const pCorrected = Number.isFinite(v.evAdjustedPValue) ? ` · pHolm ${fmt(v.evAdjustedPValue, 4)}` : '';
-    return `<tr><td><strong>${escapeHtml(item.candidate.name)}</strong><small>${item.isBaseline ? 'Référence' : escapeHtml(item.candidate.stakingLabel)} · ${escapeHtml(item.candidate.riskProfileLabel)}</small></td><td class="${v.theoreticalEvPerStakeUnit < 0 ? 'negative' : 'positive'}">${fmtPct(v.theoreticalEvPerStakeUnit)}</td><td>${fmtPct(item.exploration.meanReturnPerStakeUnit)}</td><td>${progressText}${pCorrected ? `<small>${pCorrected}</small>` : ''}</td><td>${fmtPct(v.worstMaxDrawdownRate)}<small>Médiane ${fmtPct(v.medianMaxDrawdownRate)}</small></td><td>${fmtPct(v.ruinProbability)}<small>IC ${v.ruinCi95 ? `${fmtPct(v.ruinCi95[0])}–${fmtPct(v.ruinCi95[1])}` : '—'}</small></td><td>${v.maxLossStreak}<small>Médiane ${v.medianMaxLossStreak}</small></td><td><span class="tag ${statusClass(item.status)}">${escapeHtml(item.status)}</span><small class="status-reason">${escapeHtml(item.statusReason)}</small></td></tr>`;
+    return `<tr><td><strong>${escapeHtml(item.candidate.name)}</strong><small>${escapeHtml(candidateParameterLine(item.candidate))} · ${item.isBaseline ? 'Référence' : escapeHtml(item.candidate.riskProfileLabel)}</small></td><td class="${v.theoreticalEvPerStakeUnit < 0 ? 'negative' : 'positive'}">${fmtPct(v.theoreticalEvPerStakeUnit)}</td><td>${fmtPct(item.exploration.meanReturnPerStakeUnit)}</td><td>${progressText}${pCorrected ? `<small>${pCorrected}</small>` : ''}</td><td>${fmtPct(v.worstMaxDrawdownRate)}<small>Médiane ${fmtPct(v.medianMaxDrawdownRate)}</small></td><td>${fmtPct(v.ruinProbability)}<small>IC ${v.ruinCi95 ? `${fmtPct(v.ruinCi95[0])}–${fmtPct(v.ruinCi95[1])}` : '—'}</small></td><td>${v.maxLossStreak}<small>Médiane ${v.medianMaxLossStreak}</small></td><td><span class="tag ${statusClass(item.status)}">${escapeHtml(item.status)}</span><small class="status-reason">${escapeHtml(item.statusReason)}</small></td></tr>`;
   }).join('');
+}
+
+function candidateParameterLine(candidate) {
+  return `mise ${fmt(candidate.stake)} · capital ${fmt(candidate.bankroll)} · stop ${fmt(candidate.stopLossUnits)} · gain ${fmt(candidate.takeProfitUnits)} · ${fmt(candidate.rounds, 0)} manches · plafond ${fmt(candidate.progressionCap)}×`;
 }
 
 function statusClass(status) {
@@ -267,6 +322,11 @@ function renderCurrentReport() {
   const report = currentReport();
   $('#exportJson').disabled = !report;
   $('#exportCsv').disabled = !report;
+  if (report) {
+    const generated = report.counts.generated ?? report.counts.candidateStrategies ?? report.strategies.length;
+    $('#metricStrategies').textContent = numberFormat.format(generated);
+    $('#candidateCount').textContent = `${numberFormat.format(generated)} GÉNÉRÉES · ${numberFormat.format(report.counts.shortlisted ?? report.strategies.length)} PRÉSÉLECTIONNÉES`;
+  }
   $('#metricRounds').textContent = numberFormat.format(report?.performance.simulatedRounds || 0);
   $('#checkHoldout').className = `check ${report ? 'done' : 'pending'}`;
   $('#checkHoldout').textContent = report ? '✓' : '·';
@@ -275,12 +335,12 @@ function renderCurrentReport() {
   $('#checkCorrection').textContent = report ? '✓' : '·';
   $('#labelCorrection').textContent = report ? 'HOLM APPLIQUÉ' : 'NON EFFECTUÉ';
 
-  const statuses = report?.strategies || [];
+  const statuses = report ? [...report.strategies, ...(report.unadvancedStrategies || []), ...(report.rejectedStrategies || [])] : [];
   const validatedCount = statuses.filter((item) => item.status === 'VALIDATED UNDER ASSUMPTIONS').length;
   const rejectedCount = statuses.filter((item) => item.status === 'REJECTED').length;
   const overall = !report ? (state.model.assumptionsVerified ? 'UNDER TEST' : 'EN ATTENTE')
     : validatedCount ? 'VALIDATED UNDER ASSUMPTIONS'
-      : rejectedCount === statuses.length ? 'REJECTED'
+      : statuses.length > 0 && rejectedCount === statuses.length ? 'REJECTED'
         : 'UNDER TEST';
   $('#metricStatus').textContent = overall === 'VALIDATED UNDER ASSUMPTIONS' ? 'VALIDÉ · HYPOTHÈSES' : overall;
   $('#metricStatus').className = `metric-value compact ${overall === 'REJECTED' ? 'negative' : overall === 'VALIDATED UNDER ASSUMPTIONS' ? 'positive' : ''}`;
@@ -288,7 +348,7 @@ function renderCurrentReport() {
   $('#validationIcon').textContent = overall === 'REJECTED' ? '×' : overall === 'VALIDATED UNDER ASSUMPTIONS' ? '✓' : '…';
   $('#validationSummary').textContent = !report
     ? (state.model.reachProbabilities && Object.keys(state.model.reachProbabilities).length ? 'Modèle configuré, recherche non exécutée.' : 'Aucune probabilité confirmée.')
-    : `${validatedCount} validée sous hypothèses · ${rejectedCount} rejetée · ${statuses.length - validatedCount - rejectedCount} en test.`;
+    : `${report.counts.generated ?? report.counts.candidateStrategies} combinaisons compatibles · ${report.counts.screened ?? report.counts.candidateStrategies} filtrées · ${report.counts.rejected ?? rejectedCount} rejetées · ${report.counts.notAdvanced ?? 0} non approfondies · ${report.counts.deeplyTested ?? report.strategies.length} approfondies.`;
   if (report) {
     $('#validationSummary').textContent += ' Séquences indépendantes simulées, sans observations réelles.';
   }
@@ -310,7 +370,10 @@ function renderHistory() {
     const date = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(report.generatedAt));
     const duration = `${fmt(report.performance.durationMilliseconds / 1000)} s`;
     const selected = index === selectedReportIndex ? ' selected' : '';
-    return `<tr class="history-row${selected}"><td>${date}</td><td>${escapeHtml(report.game.name)}</td><td>${numberFormat.format(report.counts.roundsPerPath)}</td><td>${numberFormat.format(report.counts.pathsPerStrategy)}</td><td>${report.counts.candidateStrategies}</td><td>${duration}</td><td class="history-seed">${escapeHtml(report.settings.seed)}</td><td><button class="text-button" data-report-index="${index}">Ouvrir</button></td></tr>`;
+    const rounds = report.settings.rounds ?? report.counts.roundsPerPath;
+    const paths = report.settings.paths ?? report.counts.pathsPerStrategy;
+    const candidates = report.counts.generated ?? report.counts.candidateStrategies ?? 0;
+    return `<tr class="history-row${selected}"><td>${date}</td><td>${escapeHtml(report.game.name)}</td><td>${Number.isFinite(rounds) ? numberFormat.format(rounds) : '—'}</td><td>${Number.isFinite(paths) ? numberFormat.format(paths) : '—'}</td><td>${numberFormat.format(candidates)}</td><td>${duration}</td><td class="history-seed">${escapeHtml(report.settings.seed)}</td><td><button class="text-button" data-report-index="${index}">Ouvrir</button></td></tr>`;
   }).join('');
 }
 
@@ -365,26 +428,38 @@ async function startDiscovery() {
   let settings;
   try {
     model = currentModel();
-    settings = settingsFromForm();
+    settings = discoverySettingsFromForm();
+    normalizeDiscoverySettings(settings);
     if (!model.knownTargets.length) throw new Error('Aucune probabilité de cash-out documentée.');
   } catch (error) { return toast(error.message); }
 
   running = true;
+  searchController = new AbortController();
   state.settings = { ...settings, proportionalFraction: settings.proportionalFraction * 100, proportionalFractionIsRatio: false };
+  $('#stopSearchButton').classList.remove('hidden');
+  $('#stopSearchButton').disabled = false;
+  $('#stopSearchButton').textContent = 'Arrêter la recherche';
   $('#runButton').disabled = true;
   $('#runButton').innerHTML = '<span>◌</span> Recherche et validation en cours…';
   $('#progressArea').classList.remove('hidden');
   $('#progressBar').style.width = '0%';
   $('#progressText').textContent = 'Initialisation du modèle…';
   $('#progressPercent').textContent = '0 %';
+  for (const id of ['progressGenerated', 'progressTested', 'progressRejected', 'progressShortlisted']) $(`#${id}`).textContent = '0';
   try {
-    const report = await runDiscovery(model, settings, {
+    const report = await runStrategySearch(model, settings, {
+      signal: searchController.signal,
       onProgress(progress) {
-        const percentage = Math.round((progress.overallStep / progress.totalSteps) * 100);
-        const phase = progress.phase === 'exploration' ? 'Exploration' : 'Validation simulée';
-        $('#progressText').textContent = `${phase} · ${progress.strategyName || progress.candidateId || ''}`;
+        const percentage = Math.round(((progress.completed + (progress.candidateFraction || 0)) / progress.total) * 100);
+        const labels = { GENERATION: 'Génération', SCREENING: 'Filtrage initial', ELIMINATION: 'Élimination des candidats défavorables', COMPARISON: 'Comparaison', DEEP_TEST: 'Test approfondi', INDEPENDENT_VALIDATION: 'Validation sur graine indépendante', RANKING: 'Classement' };
+        const pathText = progress.path && progress.paths ? ` · trajectoire ${progress.path}/${progress.paths}` : '';
+        $('#progressText').textContent = `${labels[progress.stage] || progress.stage}${progress.strategyName ? ` · ${progress.strategyName}` : ''}${pathText}`;
         $('#progressPercent').textContent = `${percentage} %`;
         $('#progressBar').style.width = `${percentage}%`;
+        $('#progressGenerated').textContent = numberFormat.format(progress.generated || 0);
+        $('#progressTested').textContent = numberFormat.format(progress.tested || 0);
+        $('#progressRejected').textContent = numberFormat.format(progress.rejected || 0);
+        $('#progressShortlisted').textContent = numberFormat.format(progress.shortlisted || 0);
       }
     });
     state.reports.unshift(report);
@@ -394,13 +469,24 @@ async function startDiscovery() {
     renderAll();
     toast(`${numberFormat.format(report.performance.simulatedRounds)} simulations terminées; rapport prêt.`);
   } catch (error) {
-    toast(`Simulation interrompue : ${error.message}`);
+    toast(error.name === 'AbortError' ? 'Recherche arrêtée. Aucun rapport partiel n’a été enregistré.' : `Recherche interrompue : ${error.message}`);
   } finally {
     running = false;
+    searchController = null;
+    $('#stopSearchButton').classList.add('hidden');
+    $('#stopSearchButton').disabled = false;
+    $('#stopSearchButton').textContent = 'Arrêter la recherche';
     $('#progressArea').classList.add('hidden');
     $('#runButton').innerHTML = '<span>▶</span> Lancer la recherche';
     renderRunEstimate();
   }
+}
+
+function stopSearch() {
+  if (!running || !searchController) return;
+  $('#stopSearchButton').disabled = true;
+  $('#stopSearchButton').textContent = 'Arrêt en cours…';
+  searchController.abort();
 }
 
 function exportReport(kind) {
@@ -422,7 +508,8 @@ function clearHistory() {
 
 function updateEstimateOnSettingsChange() {
   try {
-    state.settings = { ...settingsFromForm(), proportionalFraction: Number($('#proportionInput').value), proportionalFractionIsRatio: false };
+    const values = discoverySettingsFromForm();
+    state.settings = { ...values, proportionalFraction: Number($('#proportionInput').value), proportionalFractionIsRatio: false };
     persist();
   } catch { /* Input is being edited; validation runs on submission. */ }
   renderRunEstimate();
@@ -434,6 +521,7 @@ $('#closeGameDialog').addEventListener('click', () => $('#gameDialog').close());
 $('#cancelGameDialog').addEventListener('click', () => $('#gameDialog').close());
 $('#gameForm').addEventListener('submit', saveModel);
 $('#runButton').addEventListener('click', startDiscovery);
+$('#stopSearchButton').addEventListener('click', stopSearch);
 $('#exportJson').addEventListener('click', () => exportReport('json'));
 $('#exportCsv').addEventListener('click', () => exportReport('csv'));
 $('#clearHistory').addEventListener('click', () => $('#confirmDialog').showModal());
@@ -445,7 +533,7 @@ $('#historyBody').addEventListener('click', (event) => {
   renderHistory();
   renderCurrentReport();
 });
-for (const id of ['roundsSelect', 'pathsSelect', 'stakeInput', 'bankrollInput', 'stopLossInput', 'takeProfitInput', 'lossStreakInput', 'progressionCapInput', 'proportionInput', 'alphaSelect', 'ruinLimitInput', 'seedInput']) {
+for (const id of ['roundsSelect', 'pathsSelect', 'stakeInput', 'bankrollInput', 'stopLossInput', 'takeProfitInput', 'lossStreakInput', 'progressionCapInput', 'proportionInput', 'alphaSelect', 'ruinLimitInput', 'seedInput', 'maxCandidatesInput', 'shortlistSizeInput', 'screeningRoundsSelect', 'screeningPathsInput', 'gridStakesInput', 'gridBankrollsInput', 'gridStopLossInput', 'gridTakeProfitInput', 'gridRoundsInput', 'gridLossStreakInput', 'gridProgressionInput', 'gridProportionInput']) {
   $(`#${id}`).addEventListener('change', updateEstimateOnSettingsChange);
 }
 window.addEventListener('resize', () => renderChart(safeCurrentModel(), currentReport()));
@@ -453,4 +541,3 @@ window.addEventListener('storage', (event) => { if (event.key === STORAGE_KEY) l
 
 syncSettingsToForm();
 renderAll();
-
